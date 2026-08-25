@@ -6,13 +6,19 @@
   "bin": {
     "apitest": "./bin/index.js"
   },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node bin/index.js"
   },
   "keywords": [],
   "author": "keanghongtang",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@babel/parser": "^8.0.4",
