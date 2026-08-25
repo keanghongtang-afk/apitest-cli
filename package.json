@@ -16,7 +16,17 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node bin/index.js"
   },
-  "keywords": [],
+  "keywords": [
+    "api",
+    "api-testing",
+    "api-tester",
+    "cli",
+    "nodejs",
+    "express",
+    "fastify",
+    "ast",
+    "developer-tools"
+  ],
   "author": "keanghongtang",
   "license": "MIT",
   "type": "module",
