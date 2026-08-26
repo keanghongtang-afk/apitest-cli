@@ -1,19 +1,64 @@
 #!/usr/bin/env node
 import { ExitPromptError } from '@inquirer/core';
 import path from 'path';
+import fs from 'fs';
 import { Command } from 'commander';
 import pc from 'picocolors';
 import inquirer from 'inquirer';
+import ora from 'ora';
+import boxen from 'boxen';
 import { discoverEndpoints } from '../src/parser/graph.js';
 import { executeRequest } from '../src/runner/http.js';
-
+import { getResponsiveWidth } from '../src/runner/http.js';
+import { generateMockBody } from '../src/utils/mock-data.js';
 const program = new Command();
 
-// Ctrl + C
+// ============================================================
+// THEME — Claude-Code-inspired palette
+// ============================================================
+const accent = pc.cyan;
+const muted = pc.gray;
+const dim = (s) => pc.dim(s);
+const bullet = accent('⏺');
+
+const methodColor = {
+  GET: pc.green,
+  POST: pc.yellow,
+  PUT: pc.blue,
+  PATCH: pc.magenta,
+  DELETE: pc.red,
+};
+
 process.on('SIGINT', () => {
-  console.log(pc.yellow('\n\n👋 Goodbye!'));
+  console.log(muted('\n\n⏹  Session ended.'));
   process.exit(0);
 });
+
+function banner(entryPoint, port) {
+  const lines = [
+    `${accent(pc.bold('apitest'))} ${dim('· AST-backed API testing CLI')}`,
+    '',
+    `${muted('entry')}   ${path.relative(process.cwd(), entryPoint)}`,
+    `${muted('server')}  http://localhost:${port}`,
+  ];
+
+  console.log(
+    boxen(lines.join('\n'), {
+      padding: { top: 0, bottom: 0, left: 1, right: 1 },
+      margin: { top: 1, bottom: 1, left: 0, right: 0 },
+      borderStyle: 'round',
+      borderColor: 'cyan',
+    })
+  );
+}
+
+function sectionHeader(text) {
+  console.log(`\n${bullet} ${pc.bold(text)}`);
+}
+
+function statusLine(text) {
+  console.log(`  ${muted('└')} ${muted(text)}`);
+}
 
 program
   .name('apitest')
@@ -23,38 +68,29 @@ program
   .action(async (options) => {
     const baseUrl = `http://localhost:${options.port}`;
 
-    console.log(pc.yellow(`🔍 Parsing reachable AST graph...`));
+    const parseSpinner = ora({
+      text: 'Parsing reachable AST graph...',
+      color: 'cyan',
+    }).start();
 
     const { endpoints, entryPoint } = discoverEndpoints(options.entry);
 
     if (!entryPoint) {
+      parseSpinner.fail('Could not locate an application entry point.');
       console.log(
-        pc.red(
-          '❌ Could not locate an application entry point. Use --entry to specify one (e.g., apitest --entry src/server.js).'
-        )
+        muted('  Use --entry to specify one (e.g., apitest --entry src/server.js).')
       );
       return;
     }
-
-    console.log(
-      pc.gray(
-        `Entry point resolved: ${path.relative(
-          process.cwd(),
-          entryPoint
-        )}`
-      )
-    );
 
     if (endpoints.length === 0) {
-      console.log(
-        pc.red('No mounted endpoints detected from entry point graph.')
-      );
+      parseSpinner.fail('No mounted endpoints detected from entry point graph.');
       return;
     }
 
-    console.log(
-      pc.green(`\nDiscovered ${endpoints.length} endpoint(s):`)
-    );
+    parseSpinner.succeed(`Discovered ${pc.bold(endpoints.length)} endpoint(s)`);
+
+    banner(entryPoint, options.port);
 
     // ============================================================
     // MAIN CLI LOOP
@@ -62,42 +98,35 @@ program
 
     while (true) {
       const choices = [
-        ...endpoints.map((e) => ({
-          name: `${pc.bold(e.method.padEnd(6))} ${e.path} ${pc.gray(
-            `(${e.file})`
-          )}`,
-          value: e,
-        })),
-
-        new inquirer.Separator(),
-
-        {
-          name: pc.red('/exit'),
-          value: '/exit',
-        },
+        ...endpoints.map((e) => {
+          const color = methodColor[e.method] || pc.white;
+          return {
+            name: `${color(e.method.padEnd(6))} ${e.path}  ${dim(`(${e.file})`)}`,
+            value: e,
+          };
+        }),
+        new inquirer.Separator(muted('─'.repeat(40))),
+        { name: pc.red('✕ exit'), value: '/exit' },
       ];
-
-      // ============================================================
-      // SELECT ENDPOINT
-      // ============================================================
 
       const { selected } = await inquirer.prompt([
         {
           type: 'select',
           name: 'selected',
-          message: 'Select an endpoint to test:',
+          message: accent('❯') + ' Select an endpoint to test',
           choices,
+          pageSize: 12,
         },
       ]);
 
-      // ============================================================
-      // EXIT
-      // ============================================================
-
       if (selected === '/exit') {
-        console.log(pc.yellow('\n👋 Goodbye!'));
+        console.log(muted('\n⏹  Session ended.'));
         break;
       }
+
+      sectionHeader(
+        `${methodColor[selected.method]?.(selected.method) || selected.method} ${selected.path}`
+      );
 
       let finalPath = selected.path;
 
@@ -115,15 +144,16 @@ program
             {
               type: 'input',
               name: 'value',
-              message: `Enter value for parameter "${paramName}":`,
+              message: `${accent('❯')} Value for ${muted(':' + paramName)}`,
               validate: (input) =>
-                input.trim() !== '' ||
-                'Parameter value cannot be empty.',
+                input.trim() !== '' || 'Parameter value cannot be empty.',
             },
           ]);
 
           finalPath = finalPath.replace(param, value);
         }
+
+        statusLine(`resolved path → ${finalPath}`);
       }
 
       // ============================================================
@@ -134,7 +164,7 @@ program
         {
           type: 'confirm',
           name: 'addQuery',
-          message: 'Do you want to add query parameters?',
+          message: `${accent('❯')} Add query parameters?`,
           default: false,
         },
       ]);
@@ -145,35 +175,24 @@ program
 
         while (addingMore) {
           const { key, val, next } = await inquirer.prompt([
-            {
-              type: 'input',
-              name: 'key',
-              message: 'Query parameter key:',
-            },
-            {
-              type: 'input',
-              name: 'val',
-              message: 'Query parameter value:',
-            },
+            { type: 'input', name: 'key', message: '  key' },
+            { type: 'input', name: 'val', message: '  value' },
             {
               type: 'confirm',
               name: 'next',
-              message: 'Add another query parameter?',
+              message: '  add another?',
               default: false,
             },
           ]);
 
-          if (key.trim()) {
-            queryParams.append(key.trim(), val.trim());
-          }
-
+          if (key.trim()) queryParams.append(key.trim(), val.trim());
           addingMore = next;
         }
 
         const queryString = queryParams.toString();
-
         if (queryString) {
           finalPath += `?${queryString}`;
+          statusLine(`query → ${queryString}`);
         }
       }
 
@@ -189,99 +208,58 @@ program
           {
             type: 'select',
             name: 'headerType',
-            message: 'Select a request header:',
+            message: `${accent('❯')} Select a request header`,
             choices: [
-              {
-                name: 'Authorization (Bearer Token)',
-                value: 'bearer',
-              },
-              {
-                name: 'API Key',
-                value: 'api-key',
-              },
-              {
-                name: 'Content-Type',
-                value: 'content-type',
-              },
-              {
-                name: 'Accept',
-                value: 'accept',
-              },
-              {
-                name: 'Custom Header',
-                value: 'custom',
-              },
-
-              new inquirer.Separator(),
-
-              {
-                name: 'Done',
-                value: 'done',
-              },
+              { name: 'Authorization (Bearer Token)', value: 'bearer' },
+              { name: 'API Key', value: 'api-key' },
+              { name: 'Content-Type', value: 'content-type' },
+              { name: 'Accept', value: 'accept' },
+              { name: 'Custom Header', value: 'custom' },
+              new inquirer.Separator(muted('─'.repeat(30))),
+              { name: dim('done'), value: 'done' },
             ],
           },
         ]);
 
-        // Done adding headers
         if (headerType === 'done') {
           addingHeaders = false;
           break;
         }
-
-        // --------------------------------------------------------
-        // JWT / BEARER TOKEN
-        // --------------------------------------------------------
 
         if (headerType === 'bearer') {
           const { token } = await inquirer.prompt([
             {
               type: 'password',
               name: 'token',
-              message: 'Enter JWT token:',
+              message: '  JWT token',
               mask: '*',
-              validate: (input) =>
-                input.trim() !== '' ||
-                'JWT token cannot be empty.',
+              validate: (input) => input.trim() !== '' || 'JWT token cannot be empty.',
             },
           ]);
-
           headers.Authorization = `Bearer ${token.trim()}`;
-
-          console.log(pc.green('✓ Authorization header added'));
+          statusLine('Authorization header set');
         }
-
-        // --------------------------------------------------------
-        // API KEY
-        // --------------------------------------------------------
 
         if (headerType === 'api-key') {
           const { apiKey } = await inquirer.prompt([
             {
               type: 'password',
               name: 'apiKey',
-              message: 'Enter API key:',
+              message: '  API key',
               mask: '*',
-              validate: (input) =>
-                input.trim() !== '' ||
-                'API key cannot be empty.',
+              validate: (input) => input.trim() !== '' || 'API key cannot be empty.',
             },
           ]);
-
           headers['X-API-Key'] = apiKey.trim();
-
-          console.log(pc.green('✓ API key header added'));
+          statusLine('X-API-Key header set');
         }
-
-        // --------------------------------------------------------
-        // CONTENT TYPE
-        // --------------------------------------------------------
 
         if (headerType === 'content-type') {
           const { contentType } = await inquirer.prompt([
             {
               type: 'select',
               name: 'contentType',
-              message: 'Select Content-Type:',
+              message: '  Content-Type',
               choices: [
                 'application/json',
                 'application/x-www-form-urlencoded',
@@ -290,67 +268,41 @@ program
               ],
             },
           ]);
-
           headers['Content-Type'] = contentType;
-
-          console.log(
-            pc.green(`✓ Content-Type: ${contentType}`)
-          );
+          statusLine(`Content-Type: ${contentType}`);
         }
-
-        // --------------------------------------------------------
-        // ACCEPT
-        // --------------------------------------------------------
 
         if (headerType === 'accept') {
           const { accept } = await inquirer.prompt([
             {
               type: 'select',
               name: 'accept',
-              message: 'Select Accept type:',
-              choices: [
-                'application/json',
-                'text/plain',
-                '*/*',
-              ],
+              message: '  Accept',
+              choices: ['application/json', 'text/plain', '*/*'],
             },
           ]);
-
           headers.Accept = accept;
-
-          console.log(pc.green(`✓ Accept: ${accept}`));
+          statusLine(`Accept: ${accept}`);
         }
-
-        // --------------------------------------------------------
-        // CUSTOM HEADER
-        // --------------------------------------------------------
 
         if (headerType === 'custom') {
           const { key, value } = await inquirer.prompt([
             {
               type: 'input',
               name: 'key',
-              message: 'Header name:',
-              validate: (input) =>
-                input.trim() !== '' ||
-                'Header name cannot be empty.',
+              message: '  header name',
+              validate: (input) => input.trim() !== '' || 'Header name cannot be empty.',
             },
             {
               type: 'password',
               name: 'value',
-              message: 'Header value:',
+              message: '  header value',
               mask: '*',
-              validate: (input) =>
-                input.trim() !== '' ||
-                'Header value cannot be empty.',
+              validate: (input) => input.trim() !== '' || 'Header value cannot be empty.',
             },
           ]);
-
           headers[key.trim()] = value.trim();
-
-          console.log(
-            pc.green(`✓ Header "${key.trim()}" added`)
-          );
+          statusLine(`${key.trim()} header set`);
         }
       }
 
@@ -365,37 +317,191 @@ program
           {
             type: 'confirm',
             name: 'sendBody',
-            message: 'Include a JSON payload body?',
+            message: `${accent('❯')} Include a request payload body?`,
             default: true,
           },
         ]);
 
         if (sendBody) {
-          let validJson = false;
+          const { bodyType } = await inquirer.prompt([
+            {
+              type: 'select',
+              name: 'bodyType',
+              message: '  Payload body type',
+              choices: [
+                { name: 'application/json', value: 'json' },
+                { name: 'application/x-www-form-urlencoded', value: 'form' },
+                { name: 'text/plain', value: 'text' },
+                { name: 'multipart/form-data', value: 'multipart' },
+              ],
+            },
+          ]);
 
-          while (!validJson) {
-            const { jsonInput } = await inquirer.prompt([
-              {
-                type: 'input',
-                name: 'jsonInput',
-                message:
-                  'Enter raw JSON string (e.g., {"key": "value"}):',
-                default: '{}',
-              },
-            ]);
+          if (bodyType === 'json') {
+            const detectedFields = selected.bodyFields || [];
+            let mockObj = null;
 
-            try {
-              JSON.parse(jsonInput);
+            if (detectedFields.length > 0) {
+              statusLine(`detected fields → ${detectedFields.join(', ')}`);
 
-              bodyData = jsonInput;
-              validJson = true;
-            } catch (e) {
-              console.log(
-                pc.red(
-                  `❌ Invalid JSON syntax: ${e.message}`
-                )
-              );
+              const { fillMode } = await inquirer.prompt([
+                {
+                  type: 'select',
+                  name: 'fillMode',
+                  message: '  How do you want to fill the body?',
+                  choices: [
+                    { name: `Generate mock data (${detectedFields.length} field(s))`, value: 'mock' },
+                    { name: 'Enter JSON manually', value: 'manual' },
+                  ],
+                },
+              ]);
+
+              if (fillMode === 'mock') {
+                mockObj = generateMockBody(detectedFields);
+
+                console.log(
+                  boxen(JSON.stringify(mockObj, null, 2), {
+                    title: muted('generated mock body'),
+                    titleAlignment: 'left',
+                    padding: { top: 0, bottom: 0, left: 1, right: 1 },
+                    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+                    borderStyle: 'round',
+                    borderColor: 'cyan',
+                  })
+                );
+
+                const { useMock } = await inquirer.prompt([
+                  {
+                    type: 'confirm',
+                    name: 'useMock',
+                    message: '  Use this mock body as-is?',
+                    default: true,
+                  },
+                ]);
+
+                if (useMock) {
+                  bodyData = JSON.stringify(mockObj, null, 2);
+                }
+                // if declined, mockObj is kept and used to prefill the
+                // editable prompt below — nothing is thrown away
+              }
             }
+
+            if (bodyData === null) {
+              // Prefill with the mock that was just shown (if any) so the
+              // user is editing what they saw, not a freshly re-rolled one.
+              const editableDefault = mockObj
+                ? JSON.stringify(mockObj)
+                : detectedFields.length > 0
+                ? JSON.stringify(generateMockBody(detectedFields))
+                : '{}';
+
+              if (mockObj) {
+                statusLine('edit the mock body below, then press enter');
+              }
+
+              let validJson = false;
+              while (!validJson) {
+                const { jsonInput } = await inquirer.prompt([
+                  {
+                    type: 'input',
+                    name: 'jsonInput',
+                    message: '  raw JSON',
+                    default: editableDefault,
+                  },
+                ]);
+                try {
+                  JSON.parse(jsonInput);
+                  bodyData = jsonInput;
+                  validJson = true;
+                } catch (e) {
+                  console.log(pc.red(`  ✕ Invalid JSON: ${e.message}`));
+                }
+              }
+            }
+
+            headers['Content-Type'] = 'application/json';
+            statusLine('body type → json');
+          }
+
+          if (bodyType === 'form') {
+            const formParams = new URLSearchParams();
+            let addingMore = true;
+            while (addingMore) {
+              const { key, val, next } = await inquirer.prompt([
+                { type: 'input', name: 'key', message: '  field key' },
+                { type: 'input', name: 'val', message: '  field value' },
+                { type: 'confirm', name: 'next', message: '  add another?', default: false },
+              ]);
+              if (key.trim()) formParams.append(key.trim(), val.trim());
+              addingMore = next;
+            }
+            bodyData = formParams.toString();
+            headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            statusLine('body type → form-urlencoded');
+          }
+
+          if (bodyType === 'text') {
+            const { textInput } = await inquirer.prompt([
+              { type: 'input', name: 'textInput', message: '  raw text body', default: '' },
+            ]);
+            bodyData = textInput;
+            headers['Content-Type'] = 'text/plain';
+            statusLine('body type → text/plain');
+          }
+
+          if (bodyType === 'multipart') {
+            const multipart = new FormData();
+            let addingMore = true;
+
+            while (addingMore) {
+              const { key, fieldKind } = await inquirer.prompt([
+                { type: 'input', name: 'key', message: '  field name' },
+                {
+                  type: 'select',
+                  name: 'fieldKind',
+                  message: '  field type',
+                  choices: [
+                    { name: 'Text value', value: 'text' },
+                    { name: 'File (read from disk)', value: 'file' },
+                  ],
+                },
+              ]);
+
+              if (key.trim() && fieldKind === 'text') {
+                const { val } = await inquirer.prompt([
+                  { type: 'input', name: 'val', message: '  field value' },
+                ]);
+                multipart.append(key.trim(), val);
+              } else if (key.trim() && fieldKind === 'file') {
+                let filePath;
+                let fileBuffer = null;
+
+                while (fileBuffer === null) {
+                  ({ filePath } = await inquirer.prompt([
+                    { type: 'input', name: 'filePath', message: '  path to file' },
+                  ]));
+                  try {
+                    fileBuffer = fs.readFileSync(filePath.trim());
+                  } catch (e) {
+                    console.log(pc.red(`  ✕ Could not read file: ${e.message}`));
+                  }
+                }
+
+                const fileName = path.basename(filePath.trim());
+                multipart.append(key.trim(), new Blob([fileBuffer]), fileName);
+                statusLine(`attached "${fileName}" (${fileBuffer.length} bytes)`);
+              }
+
+              const { next } = await inquirer.prompt([
+                { type: 'confirm', name: 'next', message: '  add another field?', default: false },
+              ]);
+              addingMore = next;
+            }
+
+            bodyData = multipart;
+            delete headers['Content-Type'];
+            statusLine('body type → multipart/form-data');
           }
         }
       }
@@ -405,29 +511,20 @@ program
       // ============================================================
 
       const fullUrl = `${baseUrl}${finalPath}`;
+      await executeRequest(fullUrl, selected.method, bodyData, headers);
 
-      await executeRequest(
-        fullUrl,
-        selected.method,
-        bodyData,
-        headers
-      );
-
-      // ============================================================
-      // RETURN TO ENDPOINT MENU
-      // ============================================================
-
-      console.log(pc.gray('\nReturning to endpoint menu...\n'));
+      // Footer sits directly under the response box — one line, no blank
+      // line above it — so the next prompt doesn't look disconnected.
+      console.log(muted('─'.repeat(getResponsiveWidth())) + '\n');
     }
   });
 
 program.parseAsync().catch((err) => {
   if (err instanceof ExitPromptError) {
-    console.log(pc.yellow('\n👋 Exiting apitest...'));
+    console.log(muted('\n⏹  Session ended.'));
     process.exit(0);
   }
-
-  console.error(pc.red('\n❌ Unexpected error:'));
+  console.error(pc.red('\n✕ Unexpected error:'));
   console.error(err);
   process.exit(1);
 });

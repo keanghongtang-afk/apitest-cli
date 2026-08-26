@@ -33,8 +33,11 @@
   "dependencies": {
     "@babel/parser": "^8.0.4",
     "@babel/traverse": "^8.0.4",
+    "@faker-js/faker": "^10.6.0",
+    "boxen": "^8.0.1",
     "commander": "^15.0.0",
     "inquirer": "^14.1.0",
+    "ora": "^9.4.1",
     "picocolors": "^1.1.1"
   }
 }

@@ -66,7 +66,8 @@ export function discoverEndpoints(customEntry) {
         finalEndpoints.push({
           method: route.method,
           path: fullPath,
-          file: relFile
+          file: relFile,
+          bodyFields: route.bodyFields || [],
         });
       }
     }
