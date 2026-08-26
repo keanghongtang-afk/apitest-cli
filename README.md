@@ -26,7 +26,10 @@ cd apitest-cli
 npm install
 npm link
 ```
-
+or you can install from npm directly
+```bash
+npm i -g apitest-cli
+```
 After linking, the command becomes available as:
 
 ```bash
