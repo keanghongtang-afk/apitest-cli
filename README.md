@@ -16,6 +16,8 @@ This tool is useful when you want to quickly probe a running API without manuall
 - Prompts for optional query parameters
 - Prompts for JSON payloads on `POST`, `PUT`, and `PATCH`
 - Sends the request through the native `fetch` API
+- Supports WebSocket tests with a localhost URL preset or a custom URL
+- Supports WebSocket URL query parameters and JSON message parameters
 - Works with JavaScript or TypeScript projects using common entry patterns
 
 ## Installation
@@ -78,11 +80,11 @@ When run, the CLI will discover values similar to:
 
 Then it will guide you interactively through:
 
-1. Selecting the route
-2. Filling in path params such as `:id`
-3. Adding query string values
-4. Sending a JSON body for supported methods
-5. Executing the request against `http://localhost:<port>`
+1. Selecting the test type: HTTP or WebSocket
+2. For HTTP, selecting the route, filling path params such as `:id`, adding query values, and sending a body
+3. For WebSocket, selecting `ws://localhost:<port>/ws` or entering a custom `ws://`/`wss://` URL
+4. Adding URL query parameters and optional JSON message parameters
+5. Executing the request or opening the WebSocket connection
 
 ## How route discovery works
 

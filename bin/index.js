@@ -10,6 +10,7 @@ import boxen from 'boxen';
 import { discoverEndpoints } from '../src/parser/graph.js';
 import { executeRequest } from '../src/runner/http.js';
 import { getResponsiveWidth } from '../src/runner/http.js';
+import { executeWebSocket } from '../src/runner/ws.js';
 import { generateMockBody } from '../src/utils/mock-data.js';
 const program = new Command();
 
@@ -60,6 +61,120 @@ function statusLine(text) {
   console.log(`  ${muted('└')} ${muted(text)}`);
 }
 
+async function runWebSocketFlow(port) {
+  while (true) {
+    sectionHeader('WebSocket test');
+
+    const { urlChoice } = await inquirer.prompt([
+      {
+        type: 'select',
+        name: 'urlChoice',
+        message: `${accent('❯')} Select a WebSocket URL`,
+        choices: [
+          { name: `ws://localhost:${port}/ws`, value: `ws://localhost:${port}/ws` },
+          { name: 'Write a URL manually', value: 'custom' },
+          new inquirer.Separator(muted('─'.repeat(30))),
+          { name: pc.red('✕ back'), value: 'back' },
+        ],
+      },
+    ]);
+
+    if (urlChoice === 'back') return;
+
+    let websocketUrl = urlChoice;
+
+    if (urlChoice === 'custom') {
+      const result = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'websocketUrl',
+          message: '  WebSocket URL',
+          validate: (input) => {
+            try {
+              const parsed = new URL(input.trim());
+              return ['ws:', 'wss:'].includes(parsed.protocol)
+                ? true
+                : 'URL must use ws:// or wss://.';
+            } catch {
+              return 'Enter a valid WebSocket URL.';
+            }
+          },
+        },
+      ]);
+      websocketUrl = result.websocketUrl.trim();
+    }
+
+    const queryParams = new URLSearchParams();
+    let addingQuery = true;
+
+    while (addingQuery) {
+      const { addQuery } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'addQuery',
+          message: `${accent('❯')} Add URL parameter?`,
+          default: false,
+        },
+      ]);
+
+      if (!addQuery) {
+        addingQuery = false;
+        continue;
+      }
+
+      const { key, value, next } = await inquirer.prompt([
+        { type: 'input', name: 'key', message: '  parameter name' },
+        { type: 'input', name: 'value', message: '  parameter value' },
+        { type: 'confirm', name: 'next', message: '  add another?', default: false },
+      ]);
+
+      if (key.trim()) queryParams.append(key.trim(), value.trim());
+      addingQuery = next;
+    }
+
+    const queryString = queryParams.toString();
+    if (queryString) websocketUrl += `?${queryString}`;
+
+    const messageParams = {};
+    const { addMessageParams } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'addMessageParams',
+        message: `${accent('❯')} Add JSON message parameters?`,
+        default: false,
+      },
+    ]);
+
+    if (addMessageParams) {
+      let addingMessageParams = true;
+      while (addingMessageParams) {
+        const { key, value, next } = await inquirer.prompt([
+          { type: 'input', name: 'key', message: '  parameter name' },
+          { type: 'input', name: 'value', message: '  parameter value' },
+          { type: 'confirm', name: 'next', message: '  add another?', default: false },
+        ]);
+
+        if (key.trim()) messageParams[key.trim()] = value;
+        addingMessageParams = next;
+      }
+    }
+
+    await executeWebSocket(websocketUrl, messageParams);
+    console.log(muted('─'.repeat(getResponsiveWidth())) + '\n');
+
+    const { testAnother } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'testAnother',
+        message: `${accent('❯')} Test another WebSocket URL?`,
+        default: true,
+      },
+    ]);
+
+    if (!testAnother) return;
+  }
+}
+
 program
   .name('apitest')
   .description('AST-backed static analyzer and API testing CLI')
@@ -83,14 +198,31 @@ program
       return;
     }
 
-    if (endpoints.length === 0) {
-      parseSpinner.fail('No mounted endpoints detected from entry point graph.');
-      return;
-    }
-
     parseSpinner.succeed(`Discovered ${pc.bold(endpoints.length)} endpoint(s)`);
 
     banner(entryPoint, options.port);
+
+    const { testType } = await inquirer.prompt([
+      {
+        type: 'select',
+        name: 'testType',
+        message: `${accent('❯')} Select the test type`,
+        choices: [
+          { name: 'HTTP endpoint', value: 'http' },
+          { name: 'WebSocket connection', value: 'ws' },
+        ],
+      },
+    ]);
+
+    if (testType === 'ws') {
+      await runWebSocketFlow(options.port);
+      return;
+    }
+
+    if (endpoints.length === 0) {
+      console.log(muted('No mounted HTTP endpoints detected from entry point graph.'));
+      return;
+    }
 
     // ============================================================
     // MAIN CLI LOOP
