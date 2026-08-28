@@ -8,21 +8,13 @@ An interactive command-line tool for testing local HTTP APIs and WebSocket servi
 
 ## Features
 
-- Discovers HTTP routes from an application entry point using static AST analysis
-- Follows reachable relative imports and `require()` calls
-- Resolves mounted router prefixes and nested mounts
-- Supports route parameters such as `/users/:id`
-- Supports HTTP query parameters, headers, and request bodies
-- Supports JSON, form-urlencoded, plain text, and multipart HTTP bodies
-- Generates mock JSON data from detected request body fields
-- Tests WebSocket connections using a localhost preset or a custom `ws://` or `wss://` URL
-- Supports WebSocket URL parameters and repeated JSON message payloads
-- Displays HTTP responses and incoming WebSocket messages in the terminal
-
-## Requirements
-
-- Node.js 22.18 or newer
-- A locally running HTTP or WebSocket service to test
+- Discovers routes from the app entry point and reachable imported files
+- Resolves common Express-style router prefixes and nested mounts
+- Supports route params like `/users/:id`
+- Prompts for optional query parameters
+- Prompts for JSON payloads on `POST`, `PUT`, and `PATCH`
+- Sends the request through the native `fetch` API
+- Works with JavaScript or TypeScript projects using common entry patterns
 
 ## Installation
 
@@ -41,7 +33,7 @@ npm install
 npm link
 ```
 
-After installation, run:
+After linking, the command becomes available as:
 
 ```bash
 apitest
@@ -108,17 +100,21 @@ router.post('/users', createUser);
 
 app.use('/api', router);
 app.get('/health', healthCheck);
-
-app.listen(3000);
 ```
 
-The CLI can discover routes similar to:
+When run, the CLI will discover values similar to:
 
-```text
-GET    /api/users/:id
-POST   /api/users
-GET    /health
-```
+- `GET /api/users/:id`
+- `POST /api/users`
+- `GET /health`
+
+Then it will guide you interactively through:
+
+1. Selecting the route
+2. Filling in path params such as `:id`
+3. Adding query string values
+4. Sending a JSON body for supported methods
+5. Executing the request against `http://localhost:<port>`
 
 ## Route discovery
 
