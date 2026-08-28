@@ -1,6 +1,6 @@
 {
   "name": "apitest-cli",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "",
   "main": "index.js",
   "bin": {
@@ -38,6 +38,7 @@
     "commander": "^15.0.0",
     "inquirer": "^14.1.0",
     "ora": "^9.4.1",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "ws": "^8.21.3"
   }
 }
