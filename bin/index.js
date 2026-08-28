@@ -21,6 +21,7 @@ const accent = pc.cyan;
 const muted = pc.gray;
 const dim = (s) => pc.dim(s);
 const bullet = accent('⏺');
+let closeActiveWebSocket = null;
 
 const methodColor = {
   GET: pc.green,
@@ -31,8 +32,9 @@ const methodColor = {
 };
 
 process.on('SIGINT', () => {
-  console.log(muted('\n\n⏹  Session ended.'));
-  process.exit(0);
+  if (closeActiveWebSocket) {
+    closeActiveWebSocket();
+  }
 });
 
 function banner(entryPoint, port) {
@@ -159,19 +161,11 @@ async function runWebSocketFlow(port) {
       }
     }
 
-    await executeWebSocket(websocketUrl, messageParams);
+    await executeWebSocket(websocketUrl, messageParams, (close) => {
+      closeActiveWebSocket = close;
+    });
     console.log(muted('─'.repeat(getResponsiveWidth())) + '\n');
-
-    const { testAnother } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'testAnother',
-        message: `${accent('❯')} Test another WebSocket URL?`,
-        default: true,
-      },
-    ]);
-
-    if (!testAnother) return;
+    return;
   }
 }
 
@@ -202,27 +196,33 @@ program
 
     banner(entryPoint, options.port);
 
-    const { testType } = await inquirer.prompt([
-      {
-        type: 'select',
-        name: 'testType',
-        message: `${accent('❯')} Select the test type`,
-        choices: [
-          { name: 'HTTP endpoint', value: 'http' },
-          { name: 'WebSocket connection', value: 'ws' },
-        ],
-      },
-    ]);
+    let inHttpFlow = false;
 
-    if (testType === 'ws') {
-      await runWebSocketFlow(options.port);
-      return;
-    }
+    while (true) {
+      try {
+        const { testType } = await inquirer.prompt([
+          {
+            type: 'select',
+            name: 'testType',
+            message: `${accent('❯')} Select the test type`,
+            choices: [
+              { name: 'HTTP endpoint', value: 'http' },
+              { name: 'WebSocket connection', value: 'ws' },
+            ],
+          },
+        ]);
 
-    if (endpoints.length === 0) {
-      console.log(muted('No mounted HTTP endpoints detected from entry point graph.'));
-      return;
-    }
+        if (testType === 'ws') {
+          await runWebSocketFlow(options.port);
+          continue;
+        }
+
+        if (endpoints.length === 0) {
+          console.log(muted('No mounted HTTP endpoints detected from entry point graph.'));
+          return;
+        }
+
+        inHttpFlow = true;
 
     // ============================================================
     // MAIN CLI LOOP
@@ -238,7 +238,7 @@ program
           };
         }),
         new inquirer.Separator(muted('─'.repeat(40))),
-        { name: pc.red('✕ exit'), value: '/exit' },
+        { name: pc.yellow('↩ back'), value: '/back' },
       ];
 
       const { selected } = await inquirer.prompt([
@@ -251,10 +251,7 @@ program
         },
       ]);
 
-      if (selected === '/exit') {
-        console.log(muted('\n⏹  Session ended.'));
-        break;
-      }
+      if (selected === '/back') break;
 
       sectionHeader(
         `${methodColor[selected.method]?.(selected.method) || selected.method} ${selected.path}`
@@ -648,6 +645,18 @@ program
       // Footer sits directly under the response box — one line, no blank
       // line above it — so the next prompt doesn't look disconnected.
       console.log(muted('─'.repeat(getResponsiveWidth())) + '\n');
+    }
+      } catch (err) {
+        if (err instanceof ExitPromptError) {
+          if (!inHttpFlow) throw err;
+          console.log(muted('\n↩  Back to test type selection.'));
+          inHttpFlow = false;
+          continue;
+        }
+        throw err;
+      }
+
+      inHttpFlow = false;
     }
   });
 

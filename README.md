@@ -84,7 +84,9 @@ Then it will guide you interactively through:
 2. For HTTP, selecting the route, filling path params such as `:id`, adding query values, and sending a body
 3. For WebSocket, selecting `ws://localhost:<port>/ws` or entering a custom `ws://`/`wss://` URL
 4. Adding URL query parameters and optional JSON message parameters
-5. Executing the request or opening the WebSocket connection
+5. Executing the request or opening the WebSocket connection, which stays open until `Ctrl+C`
+
+For a WebSocket test, incoming messages are displayed while the connection remains active. After connecting, use the `Add JSON message parameters?` prompt to build and send payloads repeatedly. Press `Ctrl+C` to close it and return to the test type selection.
 
 ## How route discovery works
 
