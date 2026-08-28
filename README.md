@@ -4,7 +4,7 @@ An interactive command-line tool for testing local HTTP APIs and WebSocket servi
 
 ## Demo video
 
-<video src="./demo.mp4" controls width="100%"></video>
+[!Demo video](./demo.mp4)
 
 ## Features
 
