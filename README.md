@@ -1,26 +1,38 @@
 ﻿# apitest-cli
 
-A lightweight CLI for discovering and testing API endpoints from a local Node.js application using static AST analysis.
+An interactive command-line tool for testing local HTTP APIs and WebSocket services. It analyzes a Node.js application to find HTTP routes, then guides you through sending requests without writing curl commands by hand.
 
-## Overview
+## Demo video
 
-`apitest-cli` inspects a project entry file, follows imported modules, and identifies Express-style route registrations such as `app.get()`, `app.post()`, `router.use()`, and `router.register()`. It then lets you choose an endpoint from the discovered list, fill in path parameters and optional query/body values, and send a real HTTP request to your local app.
-
-This tool is useful when you want to quickly probe a running API without manually writing curl commands or reading the entire server codebase.
+<video src="./demo.mp4" controls width="100%"></video>
 
 ## Features
 
-- Discovers routes from the app entry point and reachable imported files
-- Resolves common Express-style router prefixes and nested mounts
-- Supports route params like `/users/:id`
-- Prompts for optional query parameters
-- Prompts for JSON payloads on `POST`, `PUT`, and `PATCH`
-- Sends the request through the native `fetch` API
-- Supports WebSocket tests with a localhost URL preset or a custom URL
-- Supports WebSocket URL query parameters and JSON message parameters
-- Works with JavaScript or TypeScript projects using common entry patterns
+- Discovers HTTP routes from an application entry point using static AST analysis
+- Follows reachable relative imports and `require()` calls
+- Resolves mounted router prefixes and nested mounts
+- Supports route parameters such as `/users/:id`
+- Supports HTTP query parameters, headers, and request bodies
+- Supports JSON, form-urlencoded, plain text, and multipart HTTP bodies
+- Generates mock JSON data from detected request body fields
+- Tests WebSocket connections using a localhost preset or a custom `ws://` or `wss://` URL
+- Supports WebSocket URL parameters and repeated JSON message payloads
+- Displays HTTP responses and incoming WebSocket messages in the terminal
+
+## Requirements
+
+- Node.js 22.18 or newer
+- A locally running HTTP or WebSocket service to test
 
 ## Installation
+
+### Install from npm
+
+```bash
+npm install --global apitest-cli
+```
+
+### Install from source
 
 ```bash
 git clone https://github.com/keanghongtang-afk/apitest-cli.git
@@ -28,17 +40,14 @@ cd apitest-cli
 npm install
 npm link
 ```
-or you can install from npm directly
-```bash
-npm i -g apitest-cli
-```
-After linking, the command becomes available as:
+
+After installation, run:
 
 ```bash
 apitest
 ```
 
-You can also run it directly without installing globally:
+You can also run the CLI directly from the repository:
 
 ```bash
 node bin/index.js
@@ -55,10 +64,39 @@ apitest --entry app.js --port 8080
 
 ### Options
 
-- `-p, --port <number>`: base port for the app, default is `3000`
-- `-e, --entry <path>`: explicit application entry file to analyze
+- `-p, --port <number>`: Base port used by the HTTP URL and the default WebSocket URL. Defaults to `3000`.
+- `-e, --entry <path>`: Application entry file to analyze. Without this option, the CLI searches the project automatically.
 
-## Example
+The target service must already be running. The CLI sends requests to the service; it does not start the service for you.
+
+## Interactive workflow
+
+When the CLI starts, it shows a test type selector.
+
+### HTTP tests
+
+1. Select `HTTP endpoint`.
+2. Select a discovered route or choose `back` to return to the test type selector.
+3. Enter values for route parameters such as `:id`.
+4. Add query parameters if needed.
+5. Add request headers.
+6. For `POST`, `PUT`, and `PATCH`, choose a body type and enter the payload.
+7. Review the response displayed in the terminal.
+
+Press `Ctrl+C` during HTTP prompts to return to the test type selector.
+
+### WebSocket tests
+
+1. Select `WebSocket connection`.
+2. Choose the default `ws://localhost:<port>/ws` URL or enter a custom `ws://` or `wss://` URL.
+3. Add URL parameters if needed.
+4. Open the connection.
+5. Use `Add JSON message parameters?` to build and send JSON messages repeatedly.
+6. View incoming messages as they arrive.
+
+The WebSocket connection stays open until the server closes it or you press `Ctrl+C`. Pressing `Ctrl+C` closes the connection and returns to the test type selector. WebSocket connection errors also return to that selector.
+
+## Example application
 
 ```js
 const express = require('express');
@@ -70,66 +108,61 @@ router.post('/users', createUser);
 
 app.use('/api', router);
 app.get('/health', healthCheck);
+
+app.listen(3000);
 ```
 
-When run, the CLI will discover values similar to:
+The CLI can discover routes similar to:
 
-- `GET /api/users/:id`
-- `POST /api/users`
-- `GET /health`
+```text
+GET    /api/users/:id
+POST   /api/users
+GET    /health
+```
 
-Then it will guide you interactively through:
+## Route discovery
 
-1. Selecting the test type: HTTP or WebSocket
-2. For HTTP, selecting the route, filling path params such as `:id`, adding query values, and sending a body
-3. For WebSocket, selecting `ws://localhost:<port>/ws` or entering a custom `ws://`/`wss://` URL
-4. Adding URL query parameters and optional JSON message parameters
-5. Executing the request or opening the WebSocket connection, which stays open until `Ctrl+C`
+The parser uses Babel to inspect the entry file and reachable local files. It recognizes:
 
-For a WebSocket test, incoming messages are displayed while the connection remains active. After connecting, use the `Add JSON message parameters?` prompt to build and send payloads repeatedly. Press `Ctrl+C` to close it and return to the test type selection.
-
-## How route discovery works
-
-The CLI uses Babel’s AST parser to inspect the application source and detect:
-
-- relative imports
-- `require()` calls for routers and modules
 - `app.get()`, `app.post()`, `app.put()`, `app.delete()`, and `app.patch()`
+- Chained route definitions such as `router.route('/users').get(handler)`
 - `app.use()` and `router.use()` mount prefixes
-- `router.register({ prefix: '...' })` style patterns
+- `router.register()` prefixes such as `{ prefix: '/api' }`
+- Relative ES module imports and CommonJS `require()` calls
+- Request body fields used by route handlers, for mock JSON generation
 
-It traverses reachable files starting from the entry point and merges route prefixes with child route paths to reconstruct the full endpoint list.
+If no entry file is supplied, the CLI checks `package.json` and common JavaScript or TypeScript entry filenames, including `index`, `server`, `app`, and `main` files.
 
-## Entry point resolution
+WebSocket endpoints are not discovered by the AST parser. They are tested by selecting the WebSocket mode and entering the service URL manually or using the default localhost preset.
 
-If no explicit entry is provided, the tool tries to resolve the app by checking:
+## Limitations
 
-- `package.json` `main`
-- `package.json` `scripts.start`
-- common filenames such as `index.js`, `server.js`, `app.js`, and `main.js`
-- TypeScript equivalents like `index.ts`, `server.ts`, `app.ts`, and `main.ts`
-
-## Notes and limitations
-
-- This is a static analyzer, not a full runtime framework inspector.
-- It relies on recognizable string-literal route definitions and common Express-like patterns.
-- If routes are built dynamically or hidden behind advanced abstraction layers, they may not be detected.
-- The CLI assumes the target service is running locally before you send requests.
-- The CLI still only able to detect in node.js/Expressjs
+- Static analysis cannot reliably detect routes created dynamically or hidden behind unsupported abstractions.
+- Only local relative imports are followed by the parser.
+- HTTP route discovery currently recognizes the methods listed above.
+- The service must be running before requests or WebSocket connections are sent.
+- WebSocket messages are sent as JSON objects built from the prompted key/value parameters.
 
 ## Development
 
+Install dependencies and start the CLI from the repository:
+
 ```bash
+npm install
 npm start
 ```
 
-This starts the CLI entry point in the project itself.
+The current package does not include an automated test suite. JavaScript syntax can be checked with:
 
-## Contribution
+```bash
+node --check bin/index.js
+node --check src/runner/ws.js
+```
 
-Anyone is welcome to contribute to the development of this CLI program.
-For the better backend development
+## Contributing
+
+Issues and pull requests are welcome. Please keep changes focused and include documentation updates for user-facing behavior.
 
 ## License
 
-ISC
+MIT. See [LICENSE](LICENSE).
