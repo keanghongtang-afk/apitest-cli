@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>apitest</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="bullet">⏺</span>
+        <span class="brand-name">apitest</span>
+        <span class="brand-sub">AST-backed API testing</span>
+      </div>
+      <div class="meta" id="meta">
+        <span class="meta-item"><span class="meta-label">entry</span><span id="meta-entry">—</span></span>
+        <span class="meta-item"><span class="meta-label">target</span><span id="meta-target">—</span></span>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="http" role="tab" aria-selected="true">HTTP endpoint</button>
+      <button class="tab" data-tab="ws" role="tab" aria-selected="false">WebSocket connection</button>
+    </nav>
+
+    <main class="layout">
+      <!-- ============ HTTP PANEL ============ -->
+      <section class="panel http-panel" data-panel="http">
+        <aside class="sidebar">
+          <input id="endpoint-search" class="search" type="text" placeholder="Filter endpoints…" />
+          <div id="endpoint-list" class="endpoint-list"></div>
+        </aside>
+
+        <div class="workspace" id="http-workspace">
+          <div class="empty-state">
+            <span class="bullet">⏺</span>
+            <p>Select an endpoint to start building a request.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ WEBSOCKET PANEL ============ -->
+      <section class="panel ws-panel hidden" data-panel="ws">
+        <div class="workspace ws-workspace">
+          <div class="section-header"><span class="bullet">⏺</span><h2>WebSocket test</h2></div>
+
+          <div class="field-row">
+            <label>URL</label>
+            <select id="ws-url-choice">
+              <option value="__default__">ws://localhost:PORT/ws</option>
+              <option value="__custom__">Write a URL manually</option>
+            </select>
+          </div>
+          <div class="field-row hidden" id="ws-custom-url-row">
+            <label>Custom URL</label>
+            <input id="ws-custom-url" type="text" placeholder="ws://localhost:3000/ws" />
+          </div>
+
+          <div class="kv-editor" id="ws-query-params">
+            <div class="kv-editor-header">
+              <span>URL parameters</span>
+              <button class="btn-ghost" id="ws-add-query">+ add parameter</button>
+            </div>
+            <div class="kv-rows" id="ws-query-rows"></div>
+          </div>
+
+          <div class="ws-actions">
+            <button class="btn-primary" id="ws-connect">Connect</button>
+            <button class="btn-danger hidden" id="ws-disconnect">Disconnect</button>
+            <span class="ws-status" id="ws-status">not connected</span>
+          </div>
+
+          <div class="kv-editor" id="ws-message-params">
+            <div class="kv-editor-header">
+              <span>JSON message</span>
+              <button class="btn-ghost" id="ws-add-message-param">+ add field</button>
+            </div>
+            <div class="kv-rows" id="ws-message-rows"></div>
+            <button class="btn-secondary" id="ws-send" disabled>Send message</button>
+          </div>
+
+          <div class="section-header"><span class="bullet">⏺</span><h2>Messages</h2></div>
+          <div class="ws-log" id="ws-log"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

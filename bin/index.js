@@ -12,6 +12,7 @@ import { executeRequest } from '../src/runner/http.js';
 import { getResponsiveWidth } from '../src/runner/http.js';
 import { executeWebSocket } from '../src/runner/ws.js';
 import { generateMockBody } from '../src/utils/mock-data.js';
+import { createServer } from '../src/web/server.js';
 const program = new Command();
 
 // ============================================================
@@ -57,6 +58,25 @@ function banner(entryPoint, port) {
 
 function sectionHeader(text) {
   console.log(`\n${bullet} ${pc.bold(text)}`);
+}
+
+function webBanner(entryPoint, targetPort, uiPort) {
+  const lines = [
+    `${accent(pc.bold('apitest'))} ${dim('· web UI')}`,
+    '',
+    `${muted('entry')}   ${path.relative(process.cwd(), entryPoint)}`,
+    `${muted('target')}  http://localhost:${targetPort}`,
+    `${muted('ui')}      http://localhost:${uiPort}`,
+  ];
+
+  console.log(
+    boxen(lines.join('\n'), {
+      padding: { top: 0, bottom: 0, left: 1, right: 1 },
+      margin: { top: 1, bottom: 1, left: 0, right: 0 },
+      borderStyle: 'round',
+      borderColor: 'cyan',
+    })
+  );
 }
 
 function statusLine(text) {
@@ -174,6 +194,8 @@ program
   .description('AST-backed static analyzer and API testing CLI')
   .option('-p, --port <number>', 'Base port for running server', '3000')
   .option('-e, --entry <path>', 'Explicit application entry point file')
+  .option('-w, --web', 'Launch a browser-based UI instead of the interactive terminal')
+  .option('--ui-port <number>', 'Port for the web UI server (used with --web)', '4500')
   .action(async (options) => {
     const baseUrl = `http://localhost:${options.port}`;
 
@@ -193,6 +215,15 @@ program
     }
 
     parseSpinner.succeed(`Discovered ${pc.bold(endpoints.length)} endpoint(s)`);
+
+    if (options.web) {
+      const server = createServer({ endpoints, entryPoint, baseUrl });
+      server.listen(Number(options.uiPort), () => {
+        webBanner(entryPoint, options.port, options.uiPort);
+        console.log(muted('  Press Ctrl+C to stop the server.\n'));
+      });
+      return;
+    }
 
     banner(entryPoint, options.port);
 

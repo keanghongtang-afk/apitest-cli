@@ -15,6 +15,7 @@ An interactive command-line tool for testing local HTTP APIs and WebSocket servi
 - Prompts for JSON payloads on `POST`, `PUT`, and `PATCH`
 - Sends the request through the native `fetch` API
 - Works with JavaScript or TypeScript projects using common entry patterns
+- Optional browser-based UI (`--web`) as an alternative to the terminal prompts
 
 ## Installation
 
@@ -61,8 +62,31 @@ apitest --entry app.js --port 8080
 
 - `-p, --port <number>`: Base port used by the HTTP URL and the default WebSocket URL. Defaults to `3000`.
 - `-e, --entry <path>`: Application entry file to analyze. Without this option, the CLI searches the project automatically.
+- `-w, --web`: Launch the browser-based UI instead of the interactive terminal prompts.
+- `--ui-port <number>`: Port the web UI server listens on (used with `--web`). Defaults to `4500`.
 
 The target service must already be running. The CLI sends requests to the service; it does not start the service for you.
+
+## Web UI
+
+`--web` starts a local server that serves a browser UI for the same route discovery and request-building flow as the terminal prompts, instead of walking you through `inquirer` questions one at a time.
+
+```bash
+apitest --web
+apitest --web --port 3000 --ui-port 4500
+```
+
+Open `http://localhost:<ui-port>` (default `http://localhost:4500`). From there you can:
+
+- Browse and filter the discovered endpoints in a sidebar
+- Fill in path params, query params, and headers (with the same presets as the terminal: Bearer token, API key, Content-Type, Accept, custom)
+- Build a JSON, form-urlencoded, plain text, or multipart body — including generating mock data for detected `req.body` fields, and attaching files for multipart uploads
+- Send the request and view the status, timing, and response body
+- Open a WebSocket connection and send JSON messages, viewing sent/received messages in a log
+
+Requests to the target app are proxied through the local web UI server (the same way the terminal flow calls `fetch` directly) so the browser doesn't run into CORS issues when the UI and the target app run on different ports. WebSocket connections are opened directly from the browser to the target's `ws://` or `wss://` URL.
+
+The web UI discovers routes once at startup, the same as the terminal flow — restart `apitest --web` after changing the target app's routes.
 
 ## Interactive workflow
 
@@ -156,6 +180,8 @@ The current package does not include an automated test suite. JavaScript syntax 
 ```bash
 node --check bin/index.js
 node --check src/runner/ws.js
+node --check src/web/server.js
+node --check src/web/public/app.js
 ```
 
 ## Contributing
