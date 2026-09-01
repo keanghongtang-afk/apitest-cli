@@ -8,7 +8,171 @@
     selected: null,
     bodyType: 'json',
     mockObj: null,
+    currentTheme: 'cute',
   };
+
+  const themeRoots = [
+    {
+      name: 'cute',
+      label: 'cute',
+      root: {
+        '--bg': '#fff7fb',
+        '--bg-raised': '#ffeaf4',
+        '--panel': '#fffdfd',
+        '--panel-hover': '#fff1f6',
+        '--border': '#f1d7e7',
+        '--border-soft': '#f6e4ee',
+        '--border-focus': '#ef8bb3',
+        '--text': '#3f2a35',
+        '--text-soft': '#5d4650',
+        '--muted': '#7d6471',
+        '--dim': '#9f7c8d',
+        '--placeholder': '#b99aad',
+        '--accent': '#ff7eb6',
+        '--accent-hover': '#ff95c8',
+        '--accent-soft': 'rgba(255, 126, 182, 0.14)',
+        '--accent-strong': 'rgba(255, 126, 182, 0.22)',
+        '--green': '#6ec7a5',
+        '--green-soft': 'rgba(110, 199, 165, 0.12)',
+        '--yellow': '#f0b36a',
+        '--yellow-soft': 'rgba(240, 179, 106, 0.12)',
+        '--blue': '#78b9e8',
+        '--blue-soft': 'rgba(120, 185, 232, 0.12)',
+        '--magenta': '#c38de1',
+        '--magenta-soft': 'rgba(195, 141, 225, 0.12)',
+        '--red': '#ea8ba3',
+        '--red-soft': 'rgba(234, 139, 163, 0.12)',
+      },
+    },
+    {
+      name: 'dark',
+      label: 'dark',
+      root: {
+        '--bg': '#161a21',
+        '--bg-raised': '#1c212a',
+        '--panel': '#222833',
+        '--panel-hover': '#29303c',
+        '--border': '#343c4a',
+        '--border-soft': '#2a313d',
+        '--border-focus': '#4aa9b8',
+        '--text': '#edf1f5',
+        '--text-soft': '#d2d8e0',
+        '--muted': '#9aa5b4',
+        '--dim': '#707b8b',
+        '--placeholder': '#5c6675',
+        '--accent': '#63c7d5',
+        '--accent-hover': '#7ad5e0',
+        '--accent-soft': 'rgba(99, 199, 213, 0.12)',
+        '--accent-strong': 'rgba(99, 199, 213, 0.20)',
+        '--green': '#79d69a',
+        '--green-soft': 'rgba(121, 214, 154, 0.12)',
+        '--yellow': '#e3c76a',
+        '--yellow-soft': 'rgba(227, 199, 106, 0.12)',
+        '--blue': '#7eafe8',
+        '--blue-soft': 'rgba(126, 175, 232, 0.12)',
+        '--magenta': '#d39be5',
+        '--magenta-soft': 'rgba(211, 155, 229, 0.12)',
+        '--red': '#ed8181',
+        '--red-soft': 'rgba(237, 129, 129, 0.12)',
+      },
+    },
+    {
+      name: 'forest',
+      label: 'forest',
+      root: {
+        '--bg': '#edf7f0',
+        '--bg-raised': '#e1f1e7',
+        '--panel': '#f8fffa',
+        '--panel-hover': '#eaf8f0',
+        '--border': '#cfe2d6',
+        '--border-soft': '#dfeee5',
+        '--border-focus': '#4e9f6e',
+        '--text': '#1f382a',
+        '--text-soft': '#2d4537',
+        '--muted': '#5a7264',
+        '--dim': '#768c7d',
+        '--placeholder': '#8fa49a',
+        '--accent': '#4ea76f',
+        '--accent-hover': '#63bb86',
+        '--accent-soft': 'rgba(78, 167, 111, 0.12)',
+        '--accent-strong': 'rgba(78, 167, 111, 0.20)',
+        '--green': '#65b98d',
+        '--green-soft': 'rgba(101, 185, 141, 0.12)',
+        '--yellow': '#d9b85f',
+        '--yellow-soft': 'rgba(217, 184, 95, 0.12)',
+        '--blue': '#6ea9d9',
+        '--blue-soft': 'rgba(110, 169, 217, 0.12)',
+        '--magenta': '#b781d1',
+        '--magenta-soft': 'rgba(183, 129, 209, 0.12)',
+        '--red': '#d97979',
+        '--red-soft': 'rgba(217, 121, 121, 0.12)',
+      },
+    },
+    {
+      name: 'sunset',
+      label: 'sunset',
+      root: {
+        '--bg': '#fff5ee',
+        '--bg-raised': '#ffe8db',
+        '--panel': '#fffdfb',
+        '--panel-hover': '#fff0e8',
+        '--border': '#f3d3c1',
+        '--border-soft': '#f9e5dc',
+        '--border-focus': '#d9775a',
+        '--text': '#3d2a24',
+        '--text-soft': '#5c4036',
+        '--muted': '#7f6159',
+        '--dim': '#a17b6c',
+        '--placeholder': '#b8927d',
+        '--accent': '#f28c5b',
+        '--accent-hover': '#f79e72',
+        '--accent-soft': 'rgba(242, 140, 91, 0.12)',
+        '--accent-strong': 'rgba(242, 140, 91, 0.22)',
+        '--green': '#7bbf8d',
+        '--green-soft': 'rgba(123, 191, 141, 0.12)',
+        '--yellow': '#e8b75f',
+        '--yellow-soft': 'rgba(232, 183, 95, 0.12)',
+        '--blue': '#78a8d6',
+        '--blue-soft': 'rgba(120, 168, 214, 0.12)',
+        '--magenta': '#c98ad4',
+        '--magenta-soft': 'rgba(201, 138, 212, 0.12)',
+        '--red': '#e67d7d',
+        '--red-soft': 'rgba(230, 125, 125, 0.12)',
+      },
+    },
+    {
+      name: 'midnight',
+      label: 'midnight',
+      root: {
+        '--bg': '#0f172a',
+        '--bg-raised': '#111c34',
+        '--panel': '#162238',
+        '--panel-hover': '#1c2b40',
+        '--border': '#2f466a',
+        '--border-soft': '#23314d',
+        '--border-focus': '#7aa2ff',
+        '--text': '#e5ecff',
+        '--text-soft': '#bfd0f7',
+        '--muted': '#8ea3c9',
+        '--dim': '#6f83b1',
+        '--placeholder': '#5d6e96',
+        '--accent': '#7aa2ff',
+        '--accent-hover': '#9bb9ff',
+        '--accent-soft': 'rgba(122, 162, 255, 0.12)',
+        '--accent-strong': 'rgba(122, 162, 255, 0.22)',
+        '--green': '#6cc8a9',
+        '--green-soft': 'rgba(108, 200, 169, 0.12)',
+        '--yellow': '#e7c97f',
+        '--yellow-soft': 'rgba(231, 201, 127, 0.12)',
+        '--blue': '#7eb7ff',
+        '--blue-soft': 'rgba(126, 183, 255, 0.12)',
+        '--magenta': '#c497f2',
+        '--magenta-soft': 'rgba(196, 151, 242, 0.12)',
+        '--red': '#f08d8d',
+        '--red-soft': 'rgba(240, 141, 141, 0.12)',
+      },
+    },
+  ];
 
   // ============================================================
   // helpers
@@ -57,6 +221,83 @@
     return out;
   }
 
+  function getStoredThemeName() {
+    try {
+      const saved = localStorage.getItem('apitest-theme');
+      return themeRoots.some((theme) => theme.name === saved) ? saved : 'cute';
+    } catch {
+      return 'cute';
+    }
+  }
+
+  function changeTheme(themeName) {
+    const theme = themeRoots.find((entry) => entry.name === themeName) || themeRoots[0];
+    const root = document.documentElement;
+
+    Object.entries(theme.root).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
+    });
+
+    state.currentTheme = theme.name;
+    const themeTrigger = $('#meta-theme');
+    if (themeTrigger) {
+      themeTrigger.textContent = theme.label;
+    }
+
+    try {
+      localStorage.setItem('apitest-theme', theme.name);
+    } catch {}
+
+    const menu = $('#theme-menu');
+    if (menu) {
+      $$('.theme-option', menu).forEach((option) => {
+        option.classList.toggle('active', option.dataset.theme === theme.name);
+      });
+    }
+  }
+
+  function initThemePicker() {
+    const trigger = $('#meta-theme');
+    if (!trigger) return;
+
+    const menu = el('div', { id: 'theme-menu', class: 'theme-menu hidden' });
+    themeRoots.forEach((theme) => {
+      const option = el('button', {
+        type: 'button',
+        class: 'theme-option',
+        text: theme.label,
+        'data-theme': theme.name,
+        onclick: () => {
+          changeTheme(theme.name);
+          menu.classList.add('hidden');
+        },
+      });
+      menu.appendChild(option);
+    });
+
+    trigger.parentElement.appendChild(menu);
+    trigger.setAttribute('role', 'button');
+    trigger.tabIndex = 0;
+    trigger.addEventListener('click', (event) => {
+      event.stopPropagation();
+      menu.classList.toggle('hidden');
+    });
+    trigger.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        menu.classList.toggle('hidden');
+      }
+    });
+    document.addEventListener('click', (event) => {
+      if (!trigger.contains(event.target) && !menu.contains(event.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    state.currentTheme = getStoredThemeName();
+    changeTheme(state.currentTheme);
+  }
+
   // ============================================================
   // bootstrap
   // ============================================================
@@ -77,6 +318,7 @@
     $('#ws-url-choice').firstElementChild.textContent = `ws://localhost:${port}/ws`;
     $('#ws-url-choice').firstElementChild.value = `ws://localhost:${port}/ws`;
 
+    initThemePicker();
     renderEndpointList(state.endpoints);
   }
 
